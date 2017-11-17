@@ -4,6 +4,9 @@ set(common_HEADERS internal.h mappings.h
                    "${GLFW_SOURCE_DIR}/include/GLFW/glfw3.h"
                    "${GLFW_SOURCE_DIR}/include/GLFW/glfw3native.h")
 set(common_SOURCES context.c init.c input.c monitor.c vulkan.c window.c)
+if (UNIX)
+	list(APPEND common_SOURCES wrap_memcpy.c)
+endif()
 
 if (_GLFW_COCOA)
     set(glfw_HEADERS ${common_HEADERS} cocoa_platform.h cocoa_joystick.h
