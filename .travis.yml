@@ -25,7 +25,7 @@ before_install:
 - export PATH=$PATH:$HOME/.local/bin
 - sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
 - cat /etc/apt/sources.list
-- sudo grep "archive.ubuntu.com/ubuntu" /etc/apt/sources.list > /etc/apt/sources.list.d/ports.list
+- sudo grep "archive.ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
 - sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
 - sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
 - cat /etc/apt/sources.list.d/ports.list
