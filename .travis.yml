@@ -23,13 +23,13 @@ addons:
 before_install:
 - pip install --user awscli
 - export PATH=$PATH:$HOME/.local/bin
-- sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
-- cp /etc/apt/sources.list /etc/apt/sources.list.d/ports.list
-- sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
-- sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
-- dpkg --add-architecture armhf
-- apt update
-- apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf
+- sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+- sudo cp /etc/apt/sources.list /etc/apt/sources.list.d/ports.list
+- sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+- sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+- sudo dpkg --add-architecture armhf
+- sudo apt update
+- sudo apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf
 
 script:
 - mkdir build
