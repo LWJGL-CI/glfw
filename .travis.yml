@@ -19,10 +19,6 @@ addons:
     - cmake-data
     - gcc-arm-linux-gnueabihf
     - g++-arm-linux-gnueabihf
-    - libxrandr-dev:armhf
-    - libxinerama-dev:armhf
-    - libxcursor-dev:armhf
-    - libxi-dev:armhf
 
 before_install:
 - pip install --user awscli
@@ -33,6 +29,7 @@ before_install:
 - sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
 - dpkg --add-architecture armhf
 - apt update
+- apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf
 
 script:
 - mkdir build
