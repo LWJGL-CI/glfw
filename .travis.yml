@@ -30,7 +30,7 @@ before_install:
 - sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
 - cat /etc/apt/sources.list.d/ports.list
 - sudo dpkg --add-architecture armhf
-- sudo apt update
+- sudo apt-get update || true
 - sudo apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf
 
 script:
