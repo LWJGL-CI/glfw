@@ -18,17 +18,27 @@ addons:
 #    - gcc-7
     - cmake
     - cmake-data
-    - libxrandr-dev
-    - libxinerama-dev
-    - libxcursor-dev
-    - libxi-dev
-    - libwayland-dev
-    - libxkbcommon-dev
-    - libegl1-mesa-dev
+    - gcc-arm-linux-gnueabihf
+    - g++-arm-linux-gnueabihf
 
 before_install:
 - pip install --user awscli
 - export PATH=$PATH:$HOME/.local/bin
+- sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+- cat /etc/apt/sources.list
+- sudo grep "ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
+- sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+- sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+- cat /etc/apt/sources.list.d/ports.list
+- sudo dpkg --add-architecture armhf
+- sudo apt-get update || true
+#16.04+ - sudo apt-get -yq --no-install-suggests --no-install-recommends install libwayland-bin:amd64 -o Dpkg::Options::="--force-overwrite"
+#14.04 has /usr/bin/wayland-scanner in libwayland-dev, install amd64, copy bin, replace with armhf
+#when transitioning to 16.04 can simply install libwayland-bin:amd64
+- sudo apt-get -yq --no-install-suggests --no-install-recommends install libwayland-dev:amd64 -o Dpkg::Options::="--force-overwrite"
+- sudo cp /usr/bin/wayland-scanner /usr/bin/wayland-scanner.tmp
+- sudo apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf libwayland-dev:armhf libxkbcommon-dev:armhf libegl1-mesa-dev:armhf -o Dpkg::Options::="--force-overwrite"
+- sudo cp /usr/bin/wayland-scanner.tmp /usr/bin/wayland-scanner
 
 script:
 - mkdir build
@@ -40,10 +50,10 @@ script:
 - git checkout 1.15 && ./autogen.sh --prefix=/usr && make && sudo make install;
 - popd;
 #- CC="gcc-7" cmake -DGLFW_USE_WAYLAND=ON -DBUILD_SHARED_LIBS=ON -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--wrap,memcpy ..
-- cmake -DGLFW_USE_WAYLAND=ON -DBUILD_SHARED_LIBS=ON -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--wrap,memcpy ..
+- CC="arm-linux-gnueabihf-gcc" cmake -DGLFW_USE_WAYLAND=ON -DBUILD_SHARED_LIBS=ON -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--wrap,memcpy ..
 - cmake --build .
 - cd src
-- strip libglfw.so
-- "aws s3 cp libglfw.so s3://build.lwjgl.org/nightly/linux/x64/libglfw_wayland.so --acl public-read --cache-control \"public, must-revalidate, proxy-revalidate, max-age=0\""
+- arm-linux-gnueabihf-strip libglfw.so
+- "aws s3 cp libglfw.so s3://build.lwjgl.org/nightly/linux/arm32/libglfw_wayland.so --acl public-read --cache-control \"public, must-revalidate, proxy-revalidate, max-age=0\""
 - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > revision.git"
-- "aws s3 cp revision.git s3://build.lwjgl.org/nightly/linux/x64/libglfw_wayland.so.git --acl public-read --cache-control \"public, must-revalidate, proxy-revalidate, max-age=0\""
+- "aws s3 cp revision.git s3://build.lwjgl.org/nightly/linux/arm32/libglfw_wayland.so.git --acl public-read --cache-control \"public, must-revalidate, proxy-revalidate, max-age=0\""
