@@ -42,6 +42,11 @@ add_executable(title WIN32 MACOSX_BUNDLE title.c ${GLAD_GL})
 add_executable(triangle-vulkan WIN32 triangle-vulkan.c ${GLAD_VULKAN})
 add_executable(windows WIN32 MACOSX_BUNDLE windows.c ${GLAD_GL})
 
+
+if (WIN32)
+    add_executable(native WIN32 native.c ${GLAD_GL})
+endif()
+
 target_link_libraries(empty Threads::Threads)
 target_link_libraries(threads Threads::Threads)
 if (RT_LIBRARY)
@@ -49,7 +54,7 @@ if (RT_LIBRARY)
     target_link_libraries(threads "${RT_LIBRARY}")
 endif()
 
-set(GUI_ONLY_BINARIES empty gamma icon inputlag joysticks opacity tearing
+set(GUI_ONLY_BINARIES empty gamma icon inputlag joysticks native opacity tearing
     threads timeout title triangle-vulkan windows)
 set(CONSOLE_BINARIES clipboard events msaa glfwinfo iconify monitors reopen
                      cursor)

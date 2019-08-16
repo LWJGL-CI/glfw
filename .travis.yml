@@ -1,106 +1,258 @@
-language: c
-compiler: clang
-branches:
-    only:
-        - ci
-        - master
-        - 3.3-stable
+git:
+  depth: 3
+env:
+  global:
+  - secure: "MhcV5a3N8vrJ68sLcqQkH9F/gN2r2ibNM2y7yrt+mJ9N5WLl9bdzIEWyUD4AAwBk6Rf9BTQ25utpbWIlPLo2rwChh4yldGA/PQF3IJju4nlJLuVjX9XPk9PEZLYbwQGumMiRb0TonwvNNG5SyrM+mu/YT3oDKwykLtTG4lz3p14="
+  - secure: "CqpA+9sezpt3BXRuocToa9dDTOMEpg08XCy9WX73PbfoDHFEPXSEboY46VhbX4p3KJeRZ2Go5zQS5pPB7+CubMMKmb1xmo1pnHtmWemnnfHzSRPEM27wMokNkYLY8jIRcZkdJpZHWjGWV4fzr6cDMg3t22gzOB+eUnGCLa7Ziqo="
+  - AWS_DEFAULT_REGION: "us-east-1"
+  - S3_PARAMS: '"--acl public-read --cache-control \"public,must-revalidate,proxy-revalidate,max-age=0\""'
+  - GLFW_PARAMS: '"-DBUILD_SHARED_LIBS=ON -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release"'
+
 matrix:
-    include:
-        - os: linux
-          dist: xenial
-          sudo: false
-          name: "X11 shared library"
-          addons:
-              apt:
-                  packages:
-                      - libxrandr-dev
-                      - libxinerama-dev
-                      - libxcursor-dev
-                      - libxi-dev
-          env:
-              - BUILD_SHARED_LIBS=ON
-              - CFLAGS=-Werror
-        - os: linux
-          dist: xenial
-          sudo: false
-          name: "X11 static library"
-          addons:
-              apt:
-                  packages:
-                      - libxrandr-dev
-                      - libxinerama-dev
-                      - libxcursor-dev
-                      - libxi-dev
-          env:
-              - BUILD_SHARED_LIBS=OFF
-              - CFLAGS=-Werror
-        - os: linux
-          dist: xenial
-          sudo: required
-          name: "Wayland shared library"
-          addons:
-              apt:
-                  sources:
-                      - ppa:kubuntu-ppa/backports
-                  packages:
-                      - extra-cmake-modules
-                      - libwayland-dev
-                      - libxkbcommon-dev
-                      - libegl1-mesa-dev
-          env:
-              - USE_WAYLAND=ON
-              - BUILD_SHARED_LIBS=ON
-              - CFLAGS=-Werror
-        - os: linux
-          dist: xenial
-          sudo: required
-          name: "Wayland static library"
-          addons:
-              apt:
-                  sources:
-                      - ppa:kubuntu-ppa/backports
-                  packages:
-                      - extra-cmake-modules
-                      - libwayland-dev
-                      - libxkbcommon-dev
-                      - libegl1-mesa-dev
-          env:
-              - USE_WAYLAND=ON
-              - BUILD_SHARED_LIBS=OFF
-              - CFLAGS=-Werror
-        - os: osx
-          sudo: false
-          name: "Cocoa shared library"
-          env:
-              - BUILD_SHARED_LIBS=ON
-              - CFLAGS=-Werror
-              - MACOSX_DEPLOYMENT_TARGET=10.8
-        - os: osx
-          sudo: false
-          name: "Cocoa static library"
-          env:
-              - BUILD_SHARED_LIBS=OFF
-              - CFLAGS=-Werror
-              - MACOSX_DEPLOYMENT_TARGET=10.8
-script:
-    - if grep -Inr '\s$' src include docs tests examples CMake *.md .gitattributes .gitignore; then
-          echo Trailing whitespace found, aborting;
-          exit 1;
-      fi
+  include:
+
+  # -----------------
+  - name: "Linux x64"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-4.8
+        - libxrandr-dev
+        - libxinerama-dev
+        - libxcursor-dev
+        - libxi-dev
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+
+    script:
     - mkdir build
     - cd build
-    - if test -n "${USE_WAYLAND}"; then
-          git clone git://anongit.freedesktop.org/wayland/wayland-protocols;
-          pushd wayland-protocols;
-          git checkout 1.15 && ./autogen.sh --prefix=/usr && make && sudo make install;
-          popd;
-      fi
-    - cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} -DGLFW_USE_WAYLAND=${USE_WAYLAND} ..
+    - "CC=gcc-4.8 cmake $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--wrap,memcpy .."
     - cmake --build .
-notifications:
-    email:
-        recipients:
-            - ci@glfw.org
-    on_success: never
-    on_failure: always
+    - strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/x64/ $S3_PARAMS"
+    - "aws s3 cp libglfw.so.git s3://build.lwjgl.org/nightly/linux/x64/ $S3_PARAMS"
+
+  # -----------------
+  - name: "Linux x64 - Wayland"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-4.8
+        - libxrandr-dev
+        - libxinerama-dev
+        - libxcursor-dev
+        - libxi-dev
+        - libwayland-dev
+        - libxkbcommon-dev
+        - libegl1-mesa-dev
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+
+    script:
+    - mkdir build
+    - cd build
+    - wget https://mirrors.edge.kernel.org/ubuntu/pool/universe/e/extra-cmake-modules/extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - sudo dpkg -i extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - git clone git://anongit.freedesktop.org/wayland/wayland-protocols
+    - pushd wayland-protocols;
+    - git checkout 1.15 && ./autogen.sh --prefix=/usr && make && sudo make install;
+    - popd;
+    - "CC=gcc-4.8 cmake -DGLFW_USE_WAYLAND=ON $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -D_POSIX_C_SOURCE=199309L -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--wrap,memcpy .."
+    - cmake --build .
+    - strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw_wayland.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/x64/libglfw_wayland.so $S3_PARAMS"
+    - "aws s3 cp libglfw_wayland.so.git s3://build.lwjgl.org/nightly/linux/x64/ $S3_PARAMS"
+
+  # -----------------
+  - name: "Linux arm32"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-4.8-arm-linux-gnueabihf
+        - libc6-dev-armhf-cross
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+    - sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+    - sudo grep "ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+    - sudo dpkg --add-architecture armhf
+    - sudo apt-get update || true
+    - sudo apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf -o Dpkg::Options::="--force-overwrite"
+
+    script:
+    - mkdir build
+    - cd build
+    - "CC=arm-linux-gnueabihf-gcc-4.8 cmake $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" .."
+    - cmake --build .
+    - arm-linux-gnueabihf-strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/arm32/ $S3_PARAMS"
+    - "aws s3 cp libglfw.so.git s3://build.lwjgl.org/nightly/linux/arm32/ $S3_PARAMS"
+
+  # -----------------
+  - name: "Linux arm32 - Wayland"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-4.8-arm-linux-gnueabihf
+        - libc6-dev-armhf-cross
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+    - sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+    - sudo grep "ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+    - sudo dpkg --add-architecture armhf
+    - sudo apt-get update || true
+    - sudo apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf libwayland-dev:armhf libxkbcommon-dev:armhf libegl1-mesa-dev:armhf -o Dpkg::Options::="--force-overwrite"
+
+    script:
+    - mkdir build
+    - cd build
+    - wget https://mirrors.edge.kernel.org/ubuntu/pool/universe/e/extra-cmake-modules/extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - sudo dpkg -i extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - git clone git://anongit.freedesktop.org/wayland/wayland-protocols
+    - pushd wayland-protocols;
+    - git checkout 1.15 && ./autogen.sh --prefix=/usr && make && sudo make install;
+    - popd;
+    - "CC=arm-linux-gnueabihf-gcc-4.8 cmake -DGLFW_USE_WAYLAND=ON $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -D_POSIX_C_SOURCE=199309L -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" .."
+    - cmake --build .
+    - arm-linux-gnueabihf-strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw_wayland.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/arm32/libglfw_wayland.so $S3_PARAMS"
+    - "aws s3 cp libglfw_wayland.so.git s3://build.lwjgl.org/nightly/linux/arm32/ $S3_PARAMS"
+
+  # -----------------
+  - name: "Linux arm64"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-4.8-aarch64-linux-gnu
+        - libc6-dev-arm64-cross
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+    - sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+    - sudo grep "ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+    - sudo dpkg --add-architecture arm64
+    - sudo apt-get update || true
+    - sudo apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:arm64 libxinerama-dev:arm64 libxcursor-dev:arm64 libxi-dev:arm64 -o Dpkg::Options::="--force-overwrite"
+
+    script:
+    - mkdir build
+    - cd build
+    - "CC=aarch64-linux-gnu-gcc-4.8 cmake $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" .."
+    - cmake --build .
+    - aarch64-linux-gnu-strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/arm64/ $S3_PARAMS"
+    - "aws s3 cp libglfw.so.git s3://build.lwjgl.org/nightly/linux/arm64/ $S3_PARAMS"
+
+  # -----------------
+  - name: "Linux arm64 - Wayland"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-4.8-aarch64-linux-gnu
+        - libc6-dev-arm64-cross
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+    - sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+    - sudo grep "ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+    - sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+    - sudo dpkg --add-architecture arm64
+    - sudo apt-get update || true
+    - sudo apt-get -yq --no-install-suggests --no-install-recommends install libxrandr-dev:arm64 libxinerama-dev:arm64 libxcursor-dev:arm64 libxi-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libegl1-mesa-dev:arm64 -o Dpkg::Options::="--force-overwrite"
+
+    script:
+    - mkdir build
+    - cd build
+    - wget https://mirrors.kernel.org/ubuntu/pool/universe/e/extra-cmake-modules/extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - sudo dpkg -i extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - git clone git://anongit.freedesktop.org/wayland/wayland-protocols
+    - pushd wayland-protocols;
+    - git checkout 1.15 && ./autogen.sh --prefix=/usr && make && sudo make install;
+    - popd;
+    - "CC=aarch64-linux-gnu-gcc-4.8 cmake -DGLFW_USE_WAYLAND=ON $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -D_POSIX_C_SOURCE=199309L -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" .."
+    - cmake --build .
+    - aarch64-linux-gnu-strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw_wayland.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/arm64/libglfw_wayland.so $S3_PARAMS"
+    - "aws s3 cp libglfw_wayland.so.git s3://build.lwjgl.org/nightly/linux/arm64/ $S3_PARAMS"
+
+  # -----------------
+  - name: "macOS"
+  # -----------------
+    language: objective-c
+    osx_image: xcode11.3
+    compiler: clang
+
+    before_install:
+    - brew update
+
+    install:
+    - brew install awscli
+
+    script:
+    - mkdir build
+    - cd build
+    - "cmake $GLFW_PARAMS -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9 .."
+    - cmake --build .
+    - strip -u -r src/libglfw.dylib
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.dylib.git"
+    - "aws s3 cp src/libglfw.dylib s3://build.lwjgl.org/nightly/macosx/x64/ $S3_PARAMS"
+    - "aws s3 cp libglfw.dylib.git s3://build.lwjgl.org/nightly/macosx/x64/ $S3_PARAMS"

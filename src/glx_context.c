@@ -248,6 +248,8 @@ static void destroyContextGLX(_GLFWwindow* window)
 //////                       GLFW internal API                      //////
 //////////////////////////////////////////////////////////////////////////
 
+GLFWAPI char const * _glfw_opengl_library = NULL;
+
 // Initialize GLX
 //
 GLFWbool _glfwInitGLX(void)
@@ -269,11 +271,18 @@ GLFWbool _glfwInitGLX(void)
     if (_glfw.glx.handle)
         return GLFW_TRUE;
 
-    for (i = 0;  sonames[i];  i++)
+    if (_glfw_opengl_library)
     {
-        _glfw.glx.handle = _glfw_dlopen(sonames[i]);
-        if (_glfw.glx.handle)
-            break;
+        _glfw.glx.handle = _glfw_dlopen(_glfw_opengl_library);
+    }
+    if (!_glfw.glx.handle)
+    {
+        for (i = 0;  sonames[i];  i++)
+        {
+            _glfw.glx.handle = _glfw_dlopen(sonames[i]);
+            if (_glfw.glx.handle)
+                break;
+        }
     }
 
     if (!_glfw.glx.handle)

@@ -298,6 +298,9 @@ static void destroyContextEGL(_GLFWwindow* window)
 //////                       GLFW internal API                      //////
 //////////////////////////////////////////////////////////////////////////
 
+GLFWAPI char const * _glfw_egl_library = NULL;
+GLFWAPI char const * _glfw_opengles_library = NULL;
+
 // Initialize EGL
 //
 GLFWbool _glfwInitEGL(void)
@@ -323,11 +326,18 @@ GLFWbool _glfwInitEGL(void)
     if (_glfw.egl.handle)
         return GLFW_TRUE;
 
-    for (i = 0;  sonames[i];  i++)
+    if (_glfw_egl_library)
     {
-        _glfw.egl.handle = _glfw_dlopen(sonames[i]);
-        if (_glfw.egl.handle)
-            break;
+        _glfw.egl.handle = _glfw_dlopen(_glfw_egl_library);
+    }
+    if (!_glfw.egl.handle)
+    {
+        for (i = 0;  sonames[i];  i++)
+        {
+            _glfw.egl.handle = _glfw_dlopen(sonames[i]);
+            if (_glfw.egl.handle)
+                break;
+        }
     }
 
     if (!_glfw.egl.handle)
@@ -673,16 +683,23 @@ GLFWbool _glfwCreateContextEGL(_GLFWwindow* window,
         else
             sonames = glsonames;
 
-        for (i = 0;  sonames[i];  i++)
+        if (_glfw_opengles_library)
         {
-            // HACK: Match presence of lib prefix to increase chance of finding
-            //       a matching pair in the jungle that is Win32 EGL/GLES
-            if (_glfw.egl.prefix != (strncmp(sonames[i], "lib", 3) == 0))
-                continue;
+            window->context.egl.client = _glfw_dlopen(_glfw_opengles_library);
+        }
+        if (!window->context.egl.client)
+        {
+            for (i = 0;  sonames[i];  i++)
+            {
+                // HACK: Match presence of lib prefix to increase chance of finding
+                //       a matching pair in the jungle that is Win32 EGL/GLES
+                if (_glfw.egl.prefix != (strncmp(sonames[i], "lib", 3) == 0))
+                    continue;
 
-            window->context.egl.client = _glfw_dlopen(sonames[i]);
-            if (window->context.egl.client)
-                break;
+                window->context.egl.client = _glfw_dlopen(sonames[i]);
+                if (window->context.egl.client)
+                    break;
+            }
         }
 
         if (!window->context.egl.client)

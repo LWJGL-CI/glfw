@@ -41,6 +41,10 @@
 //////                       GLFW internal API                      //////
 //////////////////////////////////////////////////////////////////////////
 
+#if !defined(_GLFW_VULKAN_STATIC)
+    GLFWAPI char const * _glfw_vulkan_library = NULL;
+#endif
+
 GLFWbool _glfwInitVulkan(int mode)
 {
     VkResult err;
@@ -51,17 +55,23 @@ GLFWbool _glfwInitVulkan(int mode)
         return GLFW_TRUE;
 
 #if !defined(_GLFW_VULKAN_STATIC)
+    if (_glfw_vulkan_library)
+    {
+        _glfw.vk.handle = _glfw_dlopen(_glfw_vulkan_library);
+    }
+    if (!_glfw.vk.handle) {
 #if defined(_GLFW_VULKAN_LIBRARY)
-    _glfw.vk.handle = _glfw_dlopen(_GLFW_VULKAN_LIBRARY);
+        _glfw.vk.handle = _glfw_dlopen(_GLFW_VULKAN_LIBRARY);
 #elif defined(_GLFW_WIN32)
-    _glfw.vk.handle = _glfw_dlopen("vulkan-1.dll");
+        _glfw.vk.handle = _glfw_dlopen("vulkan-1.dll");
 #elif defined(_GLFW_COCOA)
-    _glfw.vk.handle = _glfw_dlopen("libvulkan.1.dylib");
-    if (!_glfw.vk.handle)
-        _glfw.vk.handle = _glfwLoadLocalVulkanLoaderNS();
+        _glfw.vk.handle = _glfw_dlopen("libvulkan.1.dylib");
+        if (!_glfw.vk.handle)
+            _glfw.vk.handle = _glfwLoadLocalVulkanLoaderNS();
 #else
-    _glfw.vk.handle = _glfw_dlopen("libvulkan.so.1");
+        _glfw.vk.handle = _glfw_dlopen("libvulkan.so.1");
 #endif
+    }
     if (!_glfw.vk.handle)
     {
         if (mode == _GLFW_REQUIRE_LOADER)

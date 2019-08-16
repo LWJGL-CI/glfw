@@ -44,6 +44,10 @@ if (_GLFW_X11 OR _GLFW_WAYLAND)
     endif()
 endif()
 
+if ("$ENV{TRAVIS_JOB_NAME}" STREQUAL "Linux x64")
+	target_sources(glfw PRIVATE wrap_memcpy.c)
+endif()
+
 if (_GLFW_WAYLAND)
     ecm_add_wayland_client_protocol(GLFW_WAYLAND_PROTOCOL_SOURCES
         PROTOCOL
