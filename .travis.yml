@@ -235,6 +235,78 @@ matrix:
     - "aws s3 cp libglfw_wayland.so.git s3://build.lwjgl.org/nightly/linux/arm64/ $S3_PARAMS"
 
   # -----------------
+  - name: "Linux mips64"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-5-mips64el-linux-gnuabi64
+        - libc6-dev-mips64el-cross
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+    - sudo rm -rf /etc/apt/sources.list
+    - sudo sh -c "echo 'deb http://deb.debian.org/debian stretch main' >> /etc/apt/sources.list"
+    - sudo dpkg --add-architecture mips64el
+    - sudo apt-get update || true
+    - sudo apt-get -yq --allow-unauthenticated --no-install-suggests --no-install-recommends install libxrandr-dev:mips64el libxinerama-dev:mips64el libxcursor-dev:mips64el libxi-dev:mips64el -o Dpkg::Options::="--force-overwrite"
+
+    script:
+    - mkdir build
+    - cd build
+    - "CC=mips64el-linux-gnuabi64-gcc-5 cmake $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" .."
+    - cmake --build .
+    - mips64el-linux-gnuabi64-strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/mips64/ $S3_PARAMS"
+    - "aws s3 cp libglfw.so.git s3://build.lwjgl.org/nightly/linux/mips64/ $S3_PARAMS"
+
+  # -----------------
+  - name: "Linux mips64 - Wayland"
+  # -----------------
+    dist: xenial
+    language: c
+    compiler: gcc
+
+    addons:
+      apt:
+        packages:
+        - cmake
+        - gcc-5-mips64el-linux-gnuabi64
+        - libc6-dev-mips64el-cross
+
+    before_install:
+    - pip install --user awscli
+    - export PATH=$PATH:$HOME/.local/bin
+    - sudo rm -rf /etc/apt/sources.list
+    - sudo sh -c "echo 'deb http://deb.debian.org/debian stretch main' >> /etc/apt/sources.list"
+    - sudo dpkg --add-architecture mips64el
+    - sudo apt-get update || true
+    - sudo apt-get -yq --allow-unauthenticated  --no-install-suggests --no-install-recommends install libegl1-mesa:mips64el libwayland-egl1-mesa:mips64el libdrm-dev:mips64el libdrm-amdgpu1:mips64el libxrandr-dev:mips64el libxinerama-dev:mips64el libxcursor-dev:mips64el libxi-dev:mips64el libwayland-dev:mips64el libxkbcommon-dev:mips64el libegl1-mesa-dev:mips64el -o Dpkg::Options::="--force-overwrite"
+
+    script:
+    - mkdir build
+    - cd build
+    - wget https://mirrors.kernel.org/ubuntu/pool/universe/e/extra-cmake-modules/extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - sudo dpkg -i extra-cmake-modules_5.62.0-0ubuntu1_amd64.deb
+    - git clone git://anongit.freedesktop.org/wayland/wayland-protocols
+    - pushd wayland-protocols;
+    - git checkout 1.15 && ./autogen.sh --prefix=/usr && make && sudo make install;
+    - popd;
+    - "CC=mips64el-linux-gnuabi64-gcc-5 cmake -DGLFW_USE_WAYLAND=ON $GLFW_PARAMS -DCMAKE_C_FLAGS=\"-std=c99 -D_POSIX_C_SOURCE=199309L -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0\" .."
+    - cmake --build .
+    - mips64el-linux-gnuabi64-strip src/libglfw.so
+    - "git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw_wayland.so.git"
+    - "aws s3 cp src/libglfw.so s3://build.lwjgl.org/nightly/linux/mips64/libglfw_wayland.so $S3_PARAMS"
+    - "aws s3 cp libglfw_wayland.so.git s3://build.lwjgl.org/nightly/linux/mips64/ $S3_PARAMS"
+
+  # -----------------
   - name: "macOS"
   # -----------------
     language: objective-c
