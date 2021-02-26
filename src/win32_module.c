@@ -37,6 +37,19 @@ void* _glfwPlatformLoadModule(const char* path)
     return LoadLibraryA(path);
 }
 
+void* _glfwPlatformLoadModuleUTF8(const char* path)
+{
+    WCHAR* widePath = _glfwCreateWideStringFromUTF8Win32(path);
+    if (!widePath)
+        return NULL;
+
+    HMODULE module = LoadLibraryW(widePath);
+
+    _glfw_free(widePath);
+
+    return module;
+}
+
 void _glfwPlatformFreeModule(void* module)
 {
     FreeLibrary((HMODULE) module);
