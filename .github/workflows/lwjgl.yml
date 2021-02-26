@@ -1,0 +1,196 @@
+name: LWJGL Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  S3_PARAMS: --cache-control "public,must-revalidate,proxy-revalidate,max-age=0"
+  GLFW_PARAMS: -DGLFW_LIBRARY_TYPE=SHARED -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release
+
+jobs:
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    container:
+      image: centos:7
+    strategy:
+      fail-fast: false
+      matrix:
+        ARCH: [x64]
+        include:
+          - ARCH: x64
+            PACKAGES: libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel libXext-devel libxkbcommon-devel wayland-devel
+    env:
+      LWJGL_ARCH: ${{matrix.ARCH}}
+    steps:
+      - run: |
+          yum -y install https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
+          yum -y install git
+        name: Upgrade git
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 3
+      - run: |
+          yum -y install epel-release
+          yum -y update
+        name: Configure yum
+      - run: |
+          yum -y install centos-release-scl
+          yum -y install devtoolset-11-gcc-c++
+          yum -y install cmake3 awscli
+        name: Install build dependencies
+      - run: yum -y install ${{matrix.PACKAGES}}
+        name: Install GLFW dependencies
+      # GLFW requires wayland-protocols >= 1.15, which is not available on Ubuntu 18.04
+      # The headers were generated offline and uploaded to S3, download here.
+      - run: |
+          mkdir -p build/src
+          aws s3 cp s3://lwjgl-build/ci/wayland-protocols/ build/src/ --recursive
+          source scl_source enable devtoolset-11 || true
+          cmake3 -B build $GLFW_PARAMS -DGLFW_BUILD_WAYLAND=ON -DCMAKE_C_FLAGS="-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
+        name: Configure build
+      - run: |
+          source scl_source enable devtoolset-11 || true
+          cmake3 --build build --parallel
+          strip build/src/libglfw.so
+        name: Build
+      - run: aws s3 cp build/src/libglfw.so s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/libglfw.so $S3_PARAMS
+        name: Upload artifact
+      - run: |
+          git config --global --add safe.directory $PWD
+          git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git
+          aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ $S3_PARAMS
+        name: Upload git revision
+
+  linux-cross:
+    name: Linux Cross
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:18.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ARCH: [arm32, arm64]
+        include:
+          - ARCH: arm32
+            CROSS_ARCH: armhf
+            PACKAGES: gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf libxext-dev:armhf libxkbcommon-dev:armhf libwayland-dev:armhf
+            CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/arm-linux-gnueabihf/pkgconfig CC=arm-linux-gnueabihf-gcc
+            STRIP: arm-linux-gnueabihf-strip
+          - ARCH: arm64
+            CROSS_ARCH: arm64
+            PACKAGES: gcc-aarch64-linux-gnu libc6-dev-arm64-cross libxrandr-dev:arm64 libxinerama-dev:arm64 libxcursor-dev:arm64 libxi-dev:arm64 libxext-dev:arm64 libxkbcommon-dev:arm64 libwayland-dev:arm64
+            CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/pkgconfig CC=aarch64-linux-gnu-gcc
+            STRIP: aarch64-linux-gnu-strip
+    env:
+      LWJGL_ARCH: ${{matrix.ARCH}}
+    steps:
+      - run: |
+          apt-get -y update
+          apt-get -y install software-properties-common wget
+          apt-get -y install --reinstall ca-certificates
+          apt-get -y update
+          apt-get -y upgrade
+          wget https://apt.kitware.com/keys/kitware-archive-latest.asc
+          apt-key add kitware-archive-latest.asc
+          add-apt-repository -y 'deb https://apt.kitware.com/ubuntu/ bionic main'
+          add-apt-repository -y ppa:git-core/ppa
+          apt-get -y update
+          DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git cmake pkg-config
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 3
+      - run: |
+          sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+          grep "ubuntu.com/ubuntu" /etc/apt/sources.list | tee /etc/apt/sources.list.d/ports.list
+          sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+          sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+          dpkg --add-architecture ${{matrix.CROSS_ARCH}}
+          apt-get update
+        name: Prepare cross-compilation
+      - run: apt-get -yq --no-install-suggests --no-install-recommends install ${{matrix.PACKAGES}}
+        name: Install dependencies
+      # GLFW requires wayland-protocols >= 1.15, which is not available on Ubuntu 18.04
+      # The headers were generated offline and uploaded to S3, download here.
+      - run: |
+          mkdir -p build/src
+          aws s3 cp s3://lwjgl-build/ci/wayland-protocols/ build/src/ --recursive
+          ${{matrix.CC}} cmake -B build $GLFW_PARAMS -DGLFW_BUILD_WAYLAND=ON -DCMAKE_C_FLAGS="-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
+        name: Configure build
+      - run: |
+          cmake --build build --parallel
+          ${{matrix.STRIP}} build/src/libglfw.so
+        name: Build
+      - run: aws s3 cp build/src/libglfw.so s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/libglfw.so $S3_PARAMS
+        name: Upload artifact
+      - run: |
+          git config --global --add safe.directory $(pwd)
+          git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git
+          aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ $S3_PARAMS
+        name: Upload git revision
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        ARCH: [x64, arm64]
+        include:
+          - ARCH: x64
+            CMAKE_PARAMS: -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9
+          - ARCH: arm64
+            CMAKE_PARAMS: -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES=arm64
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 3
+      - run: cmake -B build $GLFW_PARAMS ${{matrix.CMAKE_PARAMS}}
+        name: Configure build
+      - run: |
+          cmake --build build --parallel
+          strip -u -r build/src/libglfw.dylib
+        name: Build
+      - run: aws s3 cp build/src/libglfw.dylib s3://lwjgl-build/nightly/macosx/${{matrix.ARCH}}/ $S3_PARAMS
+        name: Upload artifact
+      - run: |
+          git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.dylib.git
+          aws s3 cp libglfw.dylib.git s3://lwjgl-build/nightly/macosx/${{matrix.ARCH}}/ $S3_PARAMS
+        name: Upload git revision
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        ARCH: [x86, x64, arm64]
+        include:
+          - ARCH: x86
+            PLATFORM: Win32
+          - ARCH: x64
+            PLATFORM: x64
+          - ARCH: arm64
+            PLATFORM: ARM64
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 3
+      - run: cmake -B build -G "Visual Studio 17 2022" -A ${{matrix.PLATFORM}} ${{env.GLFW_PARAMS}} -DUSE_MSVC_RUNTIME_LIBRARY_DLL=OFF
+        shell: cmd
+        name: Configure build
+      - run: cmake --build build --parallel --config Release
+        shell: cmd
+        name: Build
+      - run: aws s3 cp build\src\Release\glfw3.dll s3://lwjgl-build/nightly/windows/${{matrix.ARCH}}/glfw.dll ${{env.S3_PARAMS}}
+        shell: cmd
+        name: Upload artifact
+      - run: |
+          git log --first-parent --pretty=format:%%H HEAD~2..HEAD~1 > revision.git
+          aws s3 cp revision.git s3://lwjgl-build/nightly/windows/${{matrix.ARCH}}/glfw.dll.git ${{env.S3_PARAMS}}
+        shell: cmd
+        name: Upload git revision
