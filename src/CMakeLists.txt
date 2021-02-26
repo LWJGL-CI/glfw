@@ -74,7 +74,7 @@ if (GLFW_BUILD_WAYLAND)
     find_program(WAYLAND_SCANNER_EXECUTABLE NAMES wayland-scanner)
 
     include(FindPkgConfig)
-    pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols>=1.15)
+    #pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols>=1.15)
     pkg_get_variable(WAYLAND_PROTOCOLS_BASE wayland-protocols pkgdatadir)
     pkg_get_variable(WAYLAND_CLIENT_PKGDATADIR wayland-client pkgdatadir)
 
@@ -92,27 +92,27 @@ if (GLFW_BUILD_WAYLAND)
         target_sources(glfw PRIVATE "${output_file}.h" "${output_file}-code.h")
     endmacro()
 
-    wayland_generate(
-        "${WAYLAND_CLIENT_PKGDATADIR}/wayland.xml"
-        "${GLFW_BINARY_DIR}/src/wayland-client-protocol")
-    wayland_generate(
-        "${WAYLAND_PROTOCOLS_BASE}/stable/xdg-shell/xdg-shell.xml"
-        "${GLFW_BINARY_DIR}/src/wayland-xdg-shell-client-protocol")
-    wayland_generate(
-        "${WAYLAND_PROTOCOLS_BASE}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
-        "${GLFW_BINARY_DIR}/src/wayland-xdg-decoration-client-protocol")
-    wayland_generate(
-        "${WAYLAND_PROTOCOLS_BASE}/stable/viewporter/viewporter.xml"
-        "${GLFW_BINARY_DIR}/src/wayland-viewporter-client-protocol")
-    wayland_generate(
-        "${WAYLAND_PROTOCOLS_BASE}/unstable/relative-pointer/relative-pointer-unstable-v1.xml"
-        "${GLFW_BINARY_DIR}/src/wayland-relative-pointer-unstable-v1-client-protocol")
-    wayland_generate(
-        "${WAYLAND_PROTOCOLS_BASE}/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml"
-        "${GLFW_BINARY_DIR}/src/wayland-pointer-constraints-unstable-v1-client-protocol")
-    wayland_generate(
-        "${WAYLAND_PROTOCOLS_BASE}/unstable/idle-inhibit/idle-inhibit-unstable-v1.xml"
-        "${GLFW_BINARY_DIR}/src/wayland-idle-inhibit-unstable-v1-client-protocol")
+    #wayland_generate(
+    #    "${WAYLAND_CLIENT_PKGDATADIR}/wayland.xml"
+    #    "${GLFW_BINARY_DIR}/src/wayland-client-protocol")
+    #wayland_generate(
+    #    "${WAYLAND_PROTOCOLS_BASE}/stable/xdg-shell/xdg-shell.xml"
+    #    "${GLFW_BINARY_DIR}/src/wayland-xdg-shell-client-protocol")
+    #wayland_generate(
+    #    "${WAYLAND_PROTOCOLS_BASE}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
+    #    "${GLFW_BINARY_DIR}/src/wayland-xdg-decoration-client-protocol")
+    #wayland_generate(
+    #    "${WAYLAND_PROTOCOLS_BASE}/stable/viewporter/viewporter.xml"
+    #    "${GLFW_BINARY_DIR}/src/wayland-viewporter-client-protocol")
+    #wayland_generate(
+    #    "${WAYLAND_PROTOCOLS_BASE}/unstable/relative-pointer/relative-pointer-unstable-v1.xml"
+    #    "${GLFW_BINARY_DIR}/src/wayland-relative-pointer-unstable-v1-client-protocol")
+    #wayland_generate(
+    #    "${WAYLAND_PROTOCOLS_BASE}/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml"
+    #    "${GLFW_BINARY_DIR}/src/wayland-pointer-constraints-unstable-v1-client-protocol")
+    #wayland_generate(
+    #    "${WAYLAND_PROTOCOLS_BASE}/unstable/idle-inhibit/idle-inhibit-unstable-v1.xml"
+    #    "${GLFW_BINARY_DIR}/src/wayland-idle-inhibit-unstable-v1-client-protocol")
 endif()
 
 if (WIN32 AND GLFW_BUILD_SHARED_LIBRARY)
