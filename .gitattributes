@@ -1,3 +1,5 @@
+*	-text
+
 *.m linguist-language=Objective-C
 .gitignore export-ignore
 .gitattributes export-ignore
