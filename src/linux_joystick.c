@@ -25,6 +25,8 @@
 //
 //========================================================================
 
+#define _POSIX_C_SOURCE 200809L // LWJGL: For O_CLOEXEC on CentOS 7
+
 #include "internal.h"
 
 #if defined(GLFW_BUILD_LINUX_JOYSTICK)

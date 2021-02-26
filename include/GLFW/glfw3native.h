@@ -223,6 +223,34 @@ GLFWAPI const char* glfwGetWin32Monitor(GLFWmonitor* monitor);
  *  @ingroup native
  */
 GLFWAPI HWND glfwGetWin32Window(GLFWwindow* window);
+
+/*! @brief Wraps an existing `HWND` in a new GLFW window object.
+ *
+ *  This function creates a GLFW window object and its associated OpenGL or
+ *  OpenGL ES context for an existing `HWND`.  The `HWND` is not destroyed by
+ *  GLFW.
+ *
+ *  @param[in] handle The `HWND` to attach to the window object.
+ *  @param[in] share The window whose context to share resources with, or `NULL`
+ *  to not share resources.
+ *  @return The handle of the created window, or `NULL` if an
+ *  [error](@ref error_handling) occurred.
+ *
+ *  @errors Possible errors include @ref GLFW_NOT_INITIALIZED, @ref
+ *  GLFW_INVALID_ENUM, @ref GLFW_INVALID_VALUE, @ref GLFW_API_UNAVAILABLE, @ref
+ *  GLFW_VERSION_UNAVAILABLE, @ref GLFW_FORMAT_UNAVAILABLE and @ref
+ *  GLFW_PLATFORM_ERROR.
+ *
+ *  @thread_safety This function may be called from any thread.
+ *
+ *  @sa @ref window_creation
+ *  @sa @ref glfwCreateWindow
+ *
+ *  @since Added in version 3.3.
+ *
+ *  @ingroup native
+ */
+GLFWAPI GLFWwindow* glfwAttachWin32Window(HWND handle, GLFWwindow* share);
 #endif
 
 #if defined(GLFW_EXPOSE_NATIVE_WGL)
@@ -478,6 +506,21 @@ GLFWAPI GLXContext glfwGetGLXContext(GLFWwindow* window);
  *  @ingroup native
  */
 GLFWAPI GLXWindow glfwGetGLXWindow(GLFWwindow* window);
+
+/*! @brief Returns the `GLXFBConfig` that was chosen to create the
+ *  specified window.
+ *
+ *  @return The `GLXFBConfig` that was chosen to create the specified
+ *  window, or `NULL` if an [error](@ref error_handling) occurred.
+ *
+ *  @thread_safety This function may be called from any thread.  Access is not
+ *  synchronized.
+ *
+ *  @since Added in version 3.4
+ *
+ *  @ingroup native
+ */
+GLFWAPI GLXFBConfig glfwGetGLXFBConfig(GLFWwindow* window);
 #endif
 
 #if defined(GLFW_EXPOSE_NATIVE_WAYLAND)
@@ -586,6 +629,23 @@ GLFWAPI EGLContext glfwGetEGLContext(GLFWwindow* window);
  *  @ingroup native
  */
 GLFWAPI EGLSurface glfwGetEGLSurface(GLFWwindow* window);
+
+/*! @brief Returns the `EGLConfig` of the specified window.
+ *
+ *  @return The `EGLConfig` of the specified window, or `EGL_NO_SURFACE` if an
+ *  [error](@ref error_handling) occurred.
+ *
+ *  @errors Possible errors include @ref GLFW_NO_WINDOW_CONTEXT and @ref
+ *  GLFW_NOT_INITIALIZED.
+ *
+ *  @thread_safety This function may be called from any thread.  Access is not
+ *  synchronized.
+ *
+ *  @since Added in version 3.4.
+ *
+ *  @ingroup native
+ */
+GLFWAPI EGLConfig glfwGetEGLConfig(GLFWwindow* window);
 #endif
 
 #if defined(GLFW_EXPOSE_NATIVE_OSMESA)
