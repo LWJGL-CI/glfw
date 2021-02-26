@@ -39,6 +39,10 @@
 //////                       GLFW internal API                      //////
 //////////////////////////////////////////////////////////////////////////
 
+#if !defined(_GLFW_VULKAN_STATIC)
+    GLFWAPI char const * _glfw_vulkan_library = NULL;
+#endif
+
 GLFWbool _glfwInitVulkan(int mode)
 {
     VkResult err;
@@ -53,19 +57,25 @@ GLFWbool _glfwInitVulkan(int mode)
         _glfw.vk.GetInstanceProcAddr = _glfw.hints.init.vulkanLoader;
     else
     {
+        if (_glfw_vulkan_library)
+        {
+            _glfw.vk.handle = _glfwPlatformLoadModuleUTF8(_glfw_vulkan_library);
+        }
+        if (!_glfw.vk.handle) {
 #if defined(_GLFW_VULKAN_LIBRARY)
-        _glfw.vk.handle = _glfwPlatformLoadModule(_GLFW_VULKAN_LIBRARY);
+            _glfw.vk.handle = _glfwPlatformLoadModule(_GLFW_VULKAN_LIBRARY);
 #elif defined(_GLFW_WIN32)
-        _glfw.vk.handle = _glfwPlatformLoadModule("vulkan-1.dll");
+            _glfw.vk.handle = _glfwPlatformLoadModule("vulkan-1.dll");
 #elif defined(_GLFW_COCOA)
-        _glfw.vk.handle = _glfwPlatformLoadModule("libvulkan.1.dylib");
-        if (!_glfw.vk.handle)
-            _glfw.vk.handle = _glfwLoadLocalVulkanLoaderCocoa();
+            _glfw.vk.handle = _glfwPlatformLoadModule("libvulkan.1.dylib");
+            if (!_glfw.vk.handle)
+                _glfw.vk.handle = _glfwLoadLocalVulkanLoaderCocoa();
 #elif defined(__OpenBSD__) || defined(__NetBSD__)
-        _glfw.vk.handle = _glfwPlatformLoadModule("libvulkan.so");
+            _glfw.vk.handle = _glfwPlatformLoadModule("libvulkan.so");
 #else
-        _glfw.vk.handle = _glfwPlatformLoadModule("libvulkan.so.1");
+            _glfw.vk.handle = _glfwPlatformLoadModule("libvulkan.so.1");
 #endif
+        }
         if (!_glfw.vk.handle)
         {
             if (mode == _GLFW_REQUIRE_LOADER)
