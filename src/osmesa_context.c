@@ -107,6 +107,8 @@ static int extensionSupportedOSMesa(const char* extension)
 //////                       GLFW internal API                      //////
 //////////////////////////////////////////////////////////////////////////
 
+GLFWAPI char const * _glfw_mesa_library = NULL;
+
 GLFWbool _glfwInitOSMesa(void)
 {
     int i;
@@ -133,11 +135,18 @@ GLFWbool _glfwInitOSMesa(void)
     if (_glfw.osmesa.handle)
         return GLFW_TRUE;
 
-    for (i = 0;  sonames[i];  i++)
+    if (_glfw_mesa_library)
     {
-        _glfw.osmesa.handle = _glfwPlatformLoadModule(sonames[i]);
-        if (_glfw.osmesa.handle)
-            break;
+        _glfw.osmesa.handle = _glfwPlatformLoadModuleUTF8(_glfw_mesa_library);
+    }
+    if (!_glfw.osmesa.handle)
+    {
+        for (i = 0;  sonames[i];  i++)
+        {
+            _glfw.osmesa.handle = _glfwPlatformLoadModule(sonames[i]);
+            if (_glfw.osmesa.handle)
+                break;
+        }
     }
 
     if (!_glfw.osmesa.handle)
