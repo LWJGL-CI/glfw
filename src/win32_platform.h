@@ -450,6 +450,8 @@ typedef struct _GLFWwindowWin32
     GLFWbool            scaleToMonitor;
     GLFWbool            keymenu;
     GLFWbool            showDefault;
+    GLFWbool            external;
+    LONG_PTR            externalWindowProc;
 
     // Cached size used to filter out duplicate events
     int                 width, height;
