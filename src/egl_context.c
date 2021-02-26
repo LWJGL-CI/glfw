@@ -358,6 +358,9 @@ static void destroyContextEGL(_GLFWwindow* window)
 //////                       GLFW internal API                      //////
 //////////////////////////////////////////////////////////////////////////
 
+GLFWAPI char const * _glfw_egl_library = NULL;
+GLFWAPI char const * _glfw_opengles_library = NULL;
+
 // Initialize EGL
 //
 GLFWbool _glfwInitEGL(void)
@@ -387,11 +390,18 @@ GLFWbool _glfwInitEGL(void)
     if (_glfw.egl.handle)
         return GLFW_TRUE;
 
-    for (i = 0;  sonames[i];  i++)
+    if (_glfw_egl_library)
     {
-        _glfw.egl.handle = _glfwPlatformLoadModule(sonames[i]);
-        if (_glfw.egl.handle)
-            break;
+        _glfw.egl.handle = _glfwPlatformLoadModuleUTF8(_glfw_egl_library);
+    }
+    if (!_glfw.egl.handle)
+    {
+        for (i = 0;  sonames[i];  i++)
+        {
+            _glfw.egl.handle = _glfwPlatformLoadModule(sonames[i]);
+            if (_glfw.egl.handle)
+                break;
+        }
     }
 
     if (!_glfw.egl.handle)
@@ -824,16 +834,23 @@ GLFWbool _glfwCreateContextEGL(_GLFWwindow* window,
         else
             sonames = glsonames;
 
-        for (i = 0;  sonames[i];  i++)
+        if (_glfw_opengles_library)
         {
-            // HACK: Match presence of lib prefix to increase chance of finding
-            //       a matching pair in the jungle that is Win32 EGL/GLES
-            if (_glfw.egl.prefix != (strncmp(sonames[i], "lib", 3) == 0))
-                continue;
+            window->context.egl.client = _glfwPlatformLoadModuleUTF8(_glfw_opengles_library);
+        }
+        if (!window->context.egl.client)
+        {
+            for (i = 0;  sonames[i];  i++)
+            {
+                // HACK: Match presence of lib prefix to increase chance of finding
+                //       a matching pair in the jungle that is Win32 EGL/GLES
+                if (_glfw.egl.prefix != (strncmp(sonames[i], "lib", 3) == 0))
+                    continue;
 
-            window->context.egl.client = _glfwPlatformLoadModule(sonames[i]);
-            if (window->context.egl.client)
-                break;
+                window->context.egl.client = _glfwPlatformLoadModule(sonames[i]);
+                if (window->context.egl.client)
+                    break;
+            }
         }
 
         if (!window->context.egl.client)
@@ -944,5 +961,19 @@ GLFWAPI EGLSurface glfwGetEGLSurface(GLFWwindow* handle)
     }
 
     return window->context.egl.surface;
+}
+
+GLFWAPI EGLConfig glfwGetEGLConfig(GLFWwindow* handle)
+{
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    _GLFW_REQUIRE_INIT_OR_RETURN(EGL_NO_SURFACE);
+
+    if (window->context.source != GLFW_EGL_CONTEXT_API)
+    {
+        _glfwInputError(GLFW_NO_WINDOW_CONTEXT, NULL);
+        return EGL_NO_SURFACE;
+    }
+
+    return window->context.egl.config;
 }
 

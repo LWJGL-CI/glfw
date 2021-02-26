@@ -957,6 +957,7 @@ void _glfwPlatformLockMutex(_GLFWmutex* mutex);
 void _glfwPlatformUnlockMutex(_GLFWmutex* mutex);
 
 void* _glfwPlatformLoadModule(const char* path);
+void* _glfwPlatformLoadModuleUTF8(const char* path);
 void _glfwPlatformFreeModule(void* module);
 GLFWproc _glfwPlatformGetModuleSymbol(void* module, const char* name);
 
