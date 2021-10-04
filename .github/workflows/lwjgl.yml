@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
+      - macos-async
 
 env:
   AWS_DEFAULT_REGION: us-east-1
@@ -14,179 +14,6 @@ env:
   GLFW_PARAMS: -DGLFW_LIBRARY_TYPE=SHARED -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release
 
 jobs:
-  linux:
-    name: Linux
-    runs-on: ubuntu-latest
-    container:
-      image: almalinux:8
-    strategy:
-      fail-fast: false
-      matrix:
-        ARCH: [ x64 ]
-        include:
-          - ARCH: x64
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Install git
-        run: dnf -y install git
-      - name: Clone repository
-        run: git clone --depth 4 https://github.com/${{ github.repository }}.git .
-      - name: Install build dependencies
-        run: |
-          dnf -y install epel-release wget
-          wget https://pkgs.sysadmins.ws/el8/base/x86_64/raven-release-1.0.1-1.el8.noarch.rpm
-          rpm -ivh raven-release-1.0.1-1.el8.noarch.rpm
-          dnf config-manager --set-enabled powertools
-          dnf config-manager --set-enabled raven-extras
-          dnf -y update
-          dnf -y install gcc-toolset-15-gcc gcc-toolset-15-gcc-c++ cmake awscli
-      - name: Install GLFW dependencies
-        run: |
-          dnf -y install \
-            libXrandr-devel \
-            libXinerama-devel \
-            libXcursor-devel \
-            libXi-devel \
-            libXext-devel \
-            libxkbcommon-devel \
-            wayland-devel \
-            wayland-protocols-devel
-      - name: Configure build
-        run: |
-          source /opt/rh/gcc-toolset-15/enable || true
-          cmake -B build \
-            -DGLFW_BUILD_WAYLAND=ON \
-            -DCMAKE_C_FLAGS:STRING="${CMAKE_C_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" \
-            $GLFW_PARAMS
-      - name: Build
-        run: |
-          source /opt/rh/gcc-toolset-15/enable || true
-          cmake --build build --parallel
-          strip build/src/libglfw.so
-      - name: Upload artifact
-        run: aws s3 cp build/src/libglfw.so s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ ${{env.S3_PARAMS}}
-      - name: Upload git revision
-        run: |
-          git config --global --add safe.directory $PWD
-          git log --first-parent --pretty=format:%H --skip 3 -n 1 > libglfw.so.git
-          aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ ${{env.S3_PARAMS}}
-
-  linux-cross:
-    name: Linux Cross
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        ARCH: [arm32, arm64, ppc64le, riscv64]
-        include:
-          # ----
-          - ARCH: arm32
-            CROSS_ARCH: armhf
-            TRIPLET: arm-linux-gnueabihf
-          # ----
-          - ARCH: arm64
-            CROSS_ARCH: arm64
-            TRIPLET: aarch64-linux-gnu
-          # ----
-          - ARCH: ppc64le
-            CROSS_ARCH: ppc64el
-            TRIPLET: powerpc64le-linux-gnu
-          # ----
-          - ARCH: riscv64
-            CROSS_ARCH: riscv64
-            TRIPLET: riscv64-linux-gnu
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Install build dependencies
-        run: |
-          DEBIAN_FRONTEND=noninteractive sudo apt-get -yq update
-          DEBIAN_FRONTEND=noninteractive sudo apt-get -yq install awscli cmake \
-            gcc-12-${{matrix.TRIPLET}} \
-            libc6-dev-${{matrix.CROSS_ARCH}}-cross
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 4
-      - name: Prepare cross-compilation for ${{matrix.CROSS_ARCH}}
-        run: |
-          sudo grep 'deb ' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
-          sudo sed -i 's#^deb [^ ]\+#deb [arch=${{matrix.CROSS_ARCH}}] https://ports.ubuntu.com/ubuntu-ports/#' /etc/apt/sources.list.d/ports.list
-          sudo dpkg --add-architecture ${{matrix.CROSS_ARCH}}
-          sudo apt-get update || true
-      - name: Install dependencies
-        run: |
-          DEBIAN_FRONTEND=noninteractive sudo apt-get -yq install \
-            libxrandr-dev:${{matrix.CROSS_ARCH}} \
-            libxinerama-dev:${{matrix.CROSS_ARCH}} \
-            libxcursor-dev:${{matrix.CROSS_ARCH}} \
-            libxi-dev:${{matrix.CROSS_ARCH}} \
-            libxext-dev:${{matrix.CROSS_ARCH}} \
-            libxkbcommon-dev:${{matrix.CROSS_ARCH}} \
-            libwayland-dev:${{matrix.CROSS_ARCH}}
-      - name: Configure build
-        run: |
-          export PKG_CONFIG_LIBDIR="/usr/lib/${{matrix.TRIPLET}}/pkgconfig:/usr/share/pkgconfig"
-          CC=${{matrix.TRIPLET}}-gcc-12 cmake -B build \
-            -DGLFW_BUILD_WAYLAND=ON \
-            -DCMAKE_C_FLAGS:STRING="${CMAKE_C_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" \
-            $GLFW_PARAMS
-      - name: Build
-        run: |
-          cmake --build build --parallel
-          ${{matrix.TRIPLET}}-strip build/src/libglfw.so
-      - name: Upload artifact
-        run: aws s3 cp build/src/libglfw.so s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ ${{env.S3_PARAMS}}
-      - name: Upload git revision
-        run: |
-          git config --global --add safe.directory $(pwd)
-          git log --first-parent --pretty=format:%H --skip 3 -n 1 > libglfw.so.git
-          aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ ${{env.S3_PARAMS}}
-
-  freebsd-cross:
-    name: FreeBSD Cross
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 4
-      - name: Build
-        uses: cross-platform-actions/action@v0.32.0
-        with:
-          operating_system: freebsd
-          architecture: x86-64
-          version: '13.5'
-          memory: 4G
-          shell: bash
-          environment_variables: GLFW_PARAMS
-          run: |
-            sudo pkg install -y cmake gmake pkgconf \
-              libXrandr \
-              libXinerama \
-              libXcursor \
-              libXi \
-              libXext \
-              libxkbcommon \
-              wayland \
-              wayland-protocols \
-              libevdev \
-              evdev-proto
-            cmake -B build $GLFW_PARAMS -DGLFW_BUILD_WAYLAND=ON -DCMAKE_C_FLAGS="-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
-            cmake --build build --parallel
-            strip build/src/libglfw.so
-      - name: Upload artifact
-        run: aws s3 cp build/src/libglfw.so s3://lwjgl-build/nightly/freebsd/x64/ ${{env.S3_PARAMS}}
-      - name: Upload git revision
-        run: |
-          git config --global --add safe.directory $PWD
-          git log --first-parent --pretty=format:%H --skip 3 -n 1 > libglfw.so.git
-          aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/freebsd/x64/ ${{env.S3_PARAMS}}
-
   macos:
     name: macOS
     runs-on: macos-latest
@@ -201,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 4
+          fetch-depth: 5
       - name: Configure build
         run: cmake -B build $GLFW_PARAMS ${{matrix.CMAKE_PARAMS}}
       - name: Build
@@ -209,54 +36,8 @@ jobs:
           cmake --build build --parallel
           strip -u -r build/src/libglfw.dylib
       - name: Upload artifact
-        run: aws s3 cp build/src/libglfw.dylib s3://lwjgl-build/nightly/macosx/${{matrix.ARCH}}/ ${{env.S3_PARAMS}}
+        run: aws s3 cp build/src/libglfw.dylib s3://lwjgl-build/nightly/macosx/${{matrix.ARCH}}/libglfw_async.dylib ${{env.S3_PARAMS}}
       - name: Upload git revision
         run: |
-          git log --first-parent --pretty=format:%H --skip 3 -n 1 > libglfw.dylib.git
-          aws s3 cp libglfw.dylib.git s3://lwjgl-build/nightly/macosx/${{matrix.ARCH}}/ ${{env.S3_PARAMS}}
-
-  windows:
-    name: Windows
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        ARCH: [x86, x64, arm64]
-        include:
-          - ARCH: x86
-            PLATFORM: Win32
-            VCTOOLS: x86.x64
-          - ARCH: x64
-            PLATFORM: x64
-            VCTOOLS: x86.x64
-          - ARCH: arm64
-            PLATFORM: ARM64
-            VCTOOLS: ARM64
-    defaults:
-      run:
-        shell: cmd
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 4
-#      - name: Install Visual Studio 2026 Build Tools
-#        shell: pwsh
-#        run: |
-#          choco install cmake
-#          choco install visualstudio2026buildtools --package-parameters "`
-#            --add Microsoft.VisualStudio.Workload.VCTools `
-#            --add Microsoft.VisualStudio.Component.VC.Tools.${{matrix.VCTOOLS}} `
-#            --includeRecommended `
-#            --quiet" `
-#            -y `
-#            --ignore-package-exit-codes=3010
-      - name: Configure build
-        #-T ClangCL
-        run: cmake -B build -G "Visual Studio 17 2022" -A ${{matrix.PLATFORM}} %GLFW_PARAMS% -DUSE_MSVC_RUNTIME_LIBRARY_DLL=OFF
-      - name: Build
-        run: cmake --build build --parallel --config Release
-      - name: Upload artifact
-        run: aws s3 cp build\src\Release\glfw3.dll s3://lwjgl-build/nightly/windows/${{matrix.ARCH}}/glfw.dll ${{env.S3_PARAMS}}
-      - name: Upload git revision
-        run: |
-          git log --first-parent --pretty=format:%%H --skip 3 -n 1 > revision.git
-          aws s3 cp revision.git s3://lwjgl-build/nightly/windows/${{matrix.ARCH}}/glfw.dll.git ${{env.S3_PARAMS}}
+          git log --first-parent --pretty=format:%H --skip 4 -n 1 > libglfw_async.dylib.git
+          aws s3 cp libglfw_async.dylib.git s3://lwjgl-build/nightly/macosx/${{matrix.ARCH}}/ ${{env.S3_PARAMS}}
