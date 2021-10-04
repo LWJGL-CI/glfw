@@ -637,74 +637,84 @@ GLFWbool _glfwConnectCocoa(int platformID, _GLFWplatform* platform)
 
 int _glfwInitCocoa(void)
 {
-    @autoreleasepool {
+    __block int result = GLFW_TRUE;
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        @autoreleasepool {
 
-    _glfw.ns.helper = [[GLFWHelper alloc] init];
+        _glfw.ns.helper = [[GLFWHelper alloc] init];
 
-    [NSThread detachNewThreadSelector:@selector(doNothing:)
-                             toTarget:_glfw.ns.helper
-                           withObject:nil];
+        [NSThread detachNewThreadSelector:@selector(doNothing:)
+                                 toTarget:_glfw.ns.helper
+                               withObject:nil];
 
-    [NSApplication sharedApplication];
+        [NSApplication sharedApplication];
 
-    _glfw.ns.delegate = [[GLFWApplicationDelegate alloc] init];
-    if (_glfw.ns.delegate == nil)
-    {
-        _glfwInputError(GLFW_PLATFORM_ERROR,
-                        "Cocoa: Failed to create application delegate");
-        return GLFW_FALSE;
-    }
+        _glfw.ns.delegate = [[GLFWApplicationDelegate alloc] init];
+        if (_glfw.ns.delegate == nil)
+        {
+            _glfwInputError(GLFW_PLATFORM_ERROR,
+                            "Cocoa: Failed to create application delegate");
+            result = GLFW_FALSE;
+            return;
+        }
 
-    [NSApp setDelegate:_glfw.ns.delegate];
+        [NSApp setDelegate:_glfw.ns.delegate];
 
-    NSEvent* (^block)(NSEvent*) = ^ NSEvent* (NSEvent* event)
-    {
-        if ([event modifierFlags] & NSEventModifierFlagCommand)
-            [[NSApp keyWindow] sendEvent:event];
+        NSEvent* (^block)(NSEvent*) = ^ NSEvent*(NSEvent* event) {
+            if ([event modifierFlags] & NSEventModifierFlagCommand)
+                [[NSApp keyWindow] sendEvent:event];
 
-        return event;
-    };
+            return event;
+        };
 
-    _glfw.ns.keyUpMonitor =
-        [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyUp
-                                              handler:block];
+        _glfw.ns.keyUpMonitor =
+                [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyUp
+                                                      handler:block];
 
-    if (_glfw.hints.init.ns.chdir)
-        changeToResourcesDirectory();
+        if (_glfw.hints.init.ns.chdir)
+            changeToResourcesDirectory();
 
-    // Press and Hold prevents some keys from emitting repeated characters
-    NSDictionary* defaults = @{@"ApplePressAndHoldEnabled":@NO};
-    [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
+        // Press and Hold prevents some keys from emitting repeated characters
+        NSDictionary* defaults = @{@"ApplePressAndHoldEnabled":@NO};
+        [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
 
-    [[NSNotificationCenter defaultCenter]
-        addObserver:_glfw.ns.helper
-           selector:@selector(selectedKeyboardInputSourceChanged:)
-               name:NSTextInputContextKeyboardSelectionDidChangeNotification
-             object:nil];
+        [[NSNotificationCenter defaultCenter]
+            addObserver:_glfw.ns.helper
+               selector:@selector(selectedKeyboardInputSourceChanged:)
+                   name:NSTextInputContextKeyboardSelectionDidChangeNotification
+                 object:nil];
 
-    createKeyTables();
+        createKeyTables();
 
-    _glfw.ns.eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-    if (!_glfw.ns.eventSource)
-        return GLFW_FALSE;
+        _glfw.ns.eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+        if (!_glfw.ns.eventSource)
+        {
+            result = GLFW_FALSE;
+            return;
+        }
 
-    CGEventSourceSetLocalEventsSuppressionInterval(_glfw.ns.eventSource, 0.0);
+        CGEventSourceSetLocalEventsSuppressionInterval(_glfw.ns.eventSource, 0.0);
 
-    if (!initializeTIS())
-        return GLFW_FALSE;
+        if (!initializeTIS())
+        {
+            result = GLFW_FALSE;
+            return;
+        }
 
-    _glfwPollMonitorsCocoa();
+        _glfwPollMonitorsCocoa();
 
-    if (![[NSRunningApplication currentApplication] isFinishedLaunching])
-        [NSApp run];
+        if (![[NSRunningApplication currentApplication] isFinishedLaunching])
+            [NSApp run];
 
-    // In case we are unbundled, make us a proper UI application
-    if (_glfw.hints.init.ns.menubar)
-        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+        // In case we are unbundled, make us a proper UI application
+        if (_glfw.hints.init.ns.menubar)
+            [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-    return GLFW_TRUE;
-
-    } // autoreleasepool
+        result = GLFW_TRUE;
+        return;
+        } // autoreleasepool
+    });
+    return result;
 }
 
 void _glfwTerminateCocoa(void)
