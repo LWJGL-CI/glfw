@@ -237,6 +237,19 @@ __GLFW_FOCUS_ON_SHOW__ specifies whether the window will be given input
 focus when @ref glfwShowWindow is called. Possible values are `GLFW_TRUE` and
 `GLFW_FALSE`.
 
+@anchor GLFW_SOFT_FULLSCREEN_hint
+__GLFW_SOFT_FULLSCREEN__ specifies whether the full screen window will be
+_soft full screen_ or _hard full screen_.  Possible values are `GLFW_TRUE` and
+`GLFW_FALSE`.  The default is `GLFW_FALSE` and the full screen window will be
+_hard full screen_.
+
+_Hard full screen_ is exclusive screen and it is suitable for applications
+such as games.
+
+_Soft full screen_ is not exclusive screen and it is suitable for applications
+such as text-editors using Input Method Editor(Engine).
+See [Full screen with IME](@ref ime_full_screen) for details.
+
 @anchor GLFW_SCALE_TO_MONITOR
 __GLFW_SCALE_TO_MONITOR__ specified whether the window content area should be
 resized based on [content scale](@ref window_scale) changes.  This can be
@@ -564,6 +577,7 @@ GLFW_REFRESH_RATE             | `GLFW_DONT_CARE`            | 0 to `INT_MAX` or 
 GLFW_STEREO                   | `GLFW_FALSE`                | `GLFW_TRUE` or `GLFW_FALSE`
 GLFW_SRGB_CAPABLE             | `GLFW_FALSE`                | `GLFW_TRUE` or `GLFW_FALSE`
 GLFW_DOUBLEBUFFER             | `GLFW_TRUE`                 | `GLFW_TRUE` or `GLFW_FALSE`
+GLFW_SOFT_FULLSCREEN          | `GLFW_FALSE`                | `GLFW_TRUE` or `GLFW_FALSE`
 GLFW_CLIENT_API               | `GLFW_OPENGL_API`           | `GLFW_OPENGL_API`, `GLFW_OPENGL_ES_API` or `GLFW_NO_API`
 GLFW_CONTEXT_CREATION_API     | `GLFW_NATIVE_CONTEXT_API`   | `GLFW_NATIVE_CONTEXT_API`, `GLFW_EGL_CONTEXT_API` or `GLFW_OSMESA_CONTEXT_API`
 GLFW_CONTEXT_VERSION_MAJOR    | 1                           | Any valid major version number of the chosen client API
