@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ARCH: [arm32, arm64]
+        ARCH: [arm32, arm64, riscv64]
         include:
           - ARCH: arm32
             CROSS_ARCH: armhf
@@ -86,6 +86,11 @@ jobs:
             PACKAGES: gcc-aarch64-linux-gnu libc6-dev-arm64-cross libxrandr-dev:arm64 libxinerama-dev:arm64 libxcursor-dev:arm64 libxi-dev:arm64 libxext-dev:arm64 libxkbcommon-dev:arm64 libwayland-dev:arm64
             CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/pkgconfig CC=aarch64-linux-gnu-gcc
             STRIP: aarch64-linux-gnu-strip
+          - ARCH: riscv64
+            CROSS_ARCH: riscv64
+            PACKAGES: gcc-riscv64-linux-gnu libc6-dev-riscv64-cross libxrandr-dev:riscv64 libxinerama-dev:riscv64 libxcursor-dev:riscv64 libxi-dev:riscv64 libxext-dev:riscv64 libxkbcommon-dev:riscv64 libwayland-dev:riscv64
+            CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/riscv64-linux-gnu/pkgconfig CC=riscv64-linux-gnu-gcc
+            STRIP: riscv64-linux-gnu-strip
     env:
       LWJGL_ARCH: ${{matrix.ARCH}}
     steps:
@@ -95,7 +100,7 @@ jobs:
       - run: |
           sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
           sudo grep "ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
-          sudo sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
+          sudo sed -i 's/amd64,i386/armhf,arm64,riscv64/' /etc/apt/sources.list.d/ports.list
           sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
           sudo dpkg --add-architecture ${{matrix.CROSS_ARCH}}
           sudo apt-get update
