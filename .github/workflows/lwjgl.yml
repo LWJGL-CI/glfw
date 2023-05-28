@@ -70,7 +70,9 @@ jobs:
 
   linux-cross:
     name: Linux Cross
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
     strategy:
       fail-fast: false
       matrix:
@@ -94,18 +96,30 @@ jobs:
     env:
       LWJGL_ARCH: ${{matrix.ARCH}}
     steps:
+      - run: |
+          apt-get -y update
+          apt-get -y install software-properties-common wget
+          apt-get -y install --reinstall ca-certificates
+          apt-get -y update
+          apt-get -y upgrade
+          wget https://apt.kitware.com/keys/kitware-archive-latest.asc
+          apt-key add kitware-archive-latest.asc
+          add-apt-repository -y 'deb https://apt.kitware.com/ubuntu/ bionic main'
+          add-apt-repository -y ppa:git-core/ppa
+          apt-get -y update
+          DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git cmake pkg-config
       - uses: actions/checkout@v3
         with:
           fetch-depth: 3
       - run: |
-          sudo sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
-          sudo grep "ubuntu.com/ubuntu" /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/ports.list
-          sudo sed -i 's/amd64,i386/armhf,arm64,riscv64/' /etc/apt/sources.list.d/ports.list
-          sudo sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
-          sudo dpkg --add-architecture ${{matrix.CROSS_ARCH}}
-          sudo apt-get update
+          sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
+          grep "ubuntu.com/ubuntu" /etc/apt/sources.list | tee /etc/apt/sources.list.d/ports.list
+          sed -i 's/amd64,i386/armhf,arm64,riscv64/' /etc/apt/sources.list.d/ports.list
+          sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
+          dpkg --add-architecture ${{matrix.CROSS_ARCH}}
+          apt-get update
         name: Prepare cross-compilation
-      - run: sudo apt-get -yq --no-install-suggests --no-install-recommends install ${{matrix.PACKAGES}}
+      - run: apt-get -yq --no-install-suggests --no-install-recommends install ${{matrix.PACKAGES}}
         name: Install dependencies
       # GLFW requires wayland-protocols >= 1.15, which is not available on Ubuntu 18.04
       # The headers were generated offline and uploaded to S3, download here.
@@ -121,6 +135,7 @@ jobs:
       - run: aws s3 cp build/src/libglfw.so s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/libglfw.so $S3_PARAMS
         name: Upload artifact
       - run: |
+          git config --global --add safe.directory $(pwd)
           git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git
           aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ $S3_PARAMS
         name: Upload git revision
