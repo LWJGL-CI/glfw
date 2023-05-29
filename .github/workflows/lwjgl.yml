@@ -98,9 +98,6 @@ jobs:
     steps:
       - run: |
           apt-get -y update
-          apt-get -y install software-properties-common wget
-          apt-get -y install --reinstall ca-certificates
-          apt-get -y update
           apt-get -y upgrade
           DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git cmake pkg-config
       - uses: actions/checkout@v3
