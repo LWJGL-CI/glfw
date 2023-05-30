@@ -109,7 +109,7 @@ jobs:
           apt-key add kitware-archive-latest.asc
           add-apt-repository -y 'deb https://apt.kitware.com/ubuntu/ bionic main'
           add-apt-repository -y ppa:git-core/ppa
-        if: matrix.CONTAINER == 'ubuntu:18.04'
+        if: ${{ matrix.CONTAINER == 'ubuntu:18.04' }}
       - run: |
           apt-get -y update
           apt-get -y upgrade
