@@ -109,16 +109,11 @@ jobs:
           apt-key add kitware-archive-latest.asc
           add-apt-repository -y 'deb https://apt.kitware.com/ubuntu/ bionic main'
           add-apt-repository -y ppa:git-core/ppa
-          apt-get -y update
-          DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git cmake pkg-config
-          name: Upgrade git
         if: matrix.CONTAINER == 'ubuntu:18.04'
       - run: |
           apt-get -y update
           apt-get -y upgrade
-          DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git
-        name: Upgrade git
-        if: ${{ matrix.CONTAINER == 'ubuntu:20.04' }}
+          DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git cmake pkg-config
       - uses: actions/checkout@v3
         with:
           fetch-depth: 3
