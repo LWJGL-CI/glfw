@@ -68,26 +68,34 @@ jobs:
           aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ $S3_PARAMS
         name: Upload git revision
 
-  linux-cross-arm:
-    name: Linux Cross Arm
+  linux-cross:
+    name: Linux Cross
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:18.04
+      image: ${{matrix.CONTAINER}}
     strategy:
       fail-fast: false
       matrix:
-        ARCH: [arm32, arm64]
+        ARCH: [arm32, arm64, riscv64]
         include:
           - ARCH: arm32
             CROSS_ARCH: armhf
+            CONTAINER: ubuntu:18.04
             PACKAGES: gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libxrandr-dev:armhf libxinerama-dev:armhf libxcursor-dev:armhf libxi-dev:armhf libxext-dev:armhf libxkbcommon-dev:armhf libwayland-dev:armhf
             CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/arm-linux-gnueabihf/pkgconfig CC=arm-linux-gnueabihf-gcc
             STRIP: arm-linux-gnueabihf-strip
           - ARCH: arm64
             CROSS_ARCH: arm64
+            CONTAINER: ubuntu:18.04
             PACKAGES: gcc-aarch64-linux-gnu libc6-dev-arm64-cross libxrandr-dev:arm64 libxinerama-dev:arm64 libxcursor-dev:arm64 libxi-dev:arm64 libxext-dev:arm64 libxkbcommon-dev:arm64 libwayland-dev:arm64
             CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/pkgconfig CC=aarch64-linux-gnu-gcc
             STRIP: aarch64-linux-gnu-strip
+          - ARCH: riscv64
+            CROSS_ARCH: riscv64
+            CONTAINER: ubuntu:20.04
+            PACKAGES: gcc-riscv64-linux-gnu libc6-dev-riscv64-cross libxrandr-dev:riscv64 libxinerama-dev:riscv64 libxcursor-dev:riscv64 libxi-dev:riscv64 libxext-dev:riscv64 libxkbcommon-dev:riscv64 libwayland-dev:riscv64
+            CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/riscv64-linux-gnu/pkgconfig CC=riscv64-linux-gnu-gcc
+            STRIP: riscv64-linux-gnu-strip
     env:
       LWJGL_ARCH: ${{matrix.ARCH}}
     steps:
@@ -101,6 +109,8 @@ jobs:
           apt-key add kitware-archive-latest.asc
           add-apt-repository -y 'deb https://apt.kitware.com/ubuntu/ bionic main'
           add-apt-repository -y ppa:git-core/ppa
+        if: matrix.CONTAINER == 'ubuntu:18.04'
+      - run: |
           apt-get -y update
           DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git cmake pkg-config
       - uses: actions/checkout@v3
@@ -109,61 +119,7 @@ jobs:
       - run: |
           sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
           grep "ubuntu.com/ubuntu" /etc/apt/sources.list | tee /etc/apt/sources.list.d/ports.list
-          sed -i 's/amd64,i386/armhf,arm64/' /etc/apt/sources.list.d/ports.list
-          sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
-          dpkg --add-architecture ${{matrix.CROSS_ARCH}}
-          apt-get update
-        name: Prepare cross-compilation
-      - run: apt-get -yq --no-install-suggests --no-install-recommends install ${{matrix.PACKAGES}}
-        name: Install dependencies
-      # GLFW requires wayland-protocols >= 1.15, which is not available on Ubuntu 18.04
-      # The headers were generated offline and uploaded to S3, download here.
-      - run: |
-          mkdir -p build/src
-          aws s3 cp s3://lwjgl-build/ci/wayland-protocols/ build/src/ --recursive
-          ${{matrix.CC}} cmake -B build $GLFW_PARAMS -DGLFW_BUILD_WAYLAND=ON -DCMAKE_C_FLAGS="-std=c99 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
-        name: Configure build
-      - run: |
-          cmake --build build --parallel
-          ${{matrix.STRIP}} build/src/libglfw.so
-        name: Build
-      - run: aws s3 cp build/src/libglfw.so s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/libglfw.so $S3_PARAMS
-        name: Upload artifact
-      - run: |
-          git config --global --add safe.directory $(pwd)
-          git log --first-parent --pretty=format:%H HEAD~2..HEAD~1 > libglfw.so.git
-          aws s3 cp libglfw.so.git s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/ $S3_PARAMS
-        name: Upload git revision
-
-  linux-cross-riscv:
-    name: Linux Cross RISC-V
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:20.04
-    strategy:
-      fail-fast: false
-      matrix:
-        ARCH: [riscv64]
-        include:
-          - ARCH: riscv64
-            CROSS_ARCH: riscv64
-            PACKAGES: gcc-riscv64-linux-gnu libc6-dev-riscv64-cross libxrandr-dev:riscv64 libxinerama-dev:riscv64 libxcursor-dev:riscv64 libxi-dev:riscv64 libxext-dev:riscv64 libxkbcommon-dev:riscv64 libwayland-dev:riscv64
-            CC: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/riscv64-linux-gnu/pkgconfig CC=riscv64-linux-gnu-gcc
-            STRIP: riscv64-linux-gnu-strip
-    env:
-      LWJGL_ARCH: ${{matrix.ARCH}}
-    steps:
-      - run: |
-          apt-get -y update
-          apt-get -y upgrade
-          DEBIAN_FRONTEND=noninteractive apt-get -yq install awscli git cmake pkg-config
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 3
-      - run: |
-          sed -i 's/deb http/deb [arch=amd64,i386] http/' /etc/apt/sources.list
-          grep "ubuntu.com/ubuntu" /etc/apt/sources.list | tee /etc/apt/sources.list.d/ports.list
-          sed -i 's/amd64,i386/riscv64/' /etc/apt/sources.list.d/ports.list
+          sed -i 's/amd64,i386/${{matrix.CROSS_ARCH}}/' /etc/apt/sources.list.d/ports.list
           sed -i 's#http://.*/ubuntu#http://ports.ubuntu.com/ubuntu-ports#' /etc/apt/sources.list.d/ports.list
           dpkg --add-architecture ${{matrix.CROSS_ARCH}}
           apt-get update
