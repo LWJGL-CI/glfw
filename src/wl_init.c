@@ -26,7 +26,12 @@
 // It is fine to use C99 in this file because it will not be built with VS
 //========================================================================
 
+#ifdef __FreeBSD__
+// O_CLOEXEC
+#define _POSIX_C_SOURCE 200809L
+#else
 #define _POSIX_C_SOURCE 199309L
+#endif
 
 #include "internal.h"
 
