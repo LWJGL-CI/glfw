@@ -108,6 +108,7 @@ if (GLFW_BUILD_WAYLAND)
     generate_wayland_protocol("xdg-decoration-unstable-v1.xml")
     generate_wayland_protocol("text-input-unstable-v1.xml")
     generate_wayland_protocol("text-input-unstable-v3.xml")
+    generate_wayland_protocol("xdg-toplevel-icon-v1.xml")
 endif()
 
 if (WIN32 AND GLFW_BUILD_SHARED_LIBRARY)

@@ -468,6 +468,7 @@ typedef struct _GLFWlibraryWayland
     struct wp_pointer_warp_v1*  pointerWarp;
     struct zwp_text_input_manager_v1*       textInputManagerV1;
     struct zwp_text_input_manager_v3*       textInputManagerV3;
+    struct xdg_toplevel_icon_manager_v1*    toplevelIconManager;
 
     _GLFWofferWayland*          offers;
     unsigned int                offerCount;
